@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#1f5f5b"/>
+      <stop offset="1" stop-color="#173a4a"/>
+    </linearGradient>
+    <clipPath id="inner"><circle cx="128" cy="128" r="70"/></clipPath>
+  </defs>
+  <rect width="256" height="256" rx="52" fill="url(#bg)"/>
+  <g clip-path="url(#inner)"><line x1="58" y1="78" x2="198" y2="78" stroke="#e8f1ef" stroke-opacity="0.35" stroke-width="9" stroke-linecap="round"/><line x1="58" y1="103" x2="198" y2="103" stroke="#e8f1ef" stroke-opacity="0.44999999999999996" stroke-width="9" stroke-linecap="round"/><line x1="58" y1="128" x2="198" y2="128" stroke="#e8f1ef" stroke-opacity="0.55" stroke-width="9" stroke-linecap="round"/><line x1="58" y1="153" x2="198" y2="153" stroke="#e8f1ef" stroke-opacity="0.65" stroke-width="9" stroke-linecap="round"/><line x1="58" y1="178" x2="198" y2="178" stroke="#e8f1ef" stroke-opacity="0.75" stroke-width="9" stroke-linecap="round"/></g>
+  <circle cx="128" cy="128" r="92" fill="none" stroke="#2c7f78" stroke-width="16"/>
+  <circle cx="128" cy="128" r="92" fill="none" stroke="#f2b84b" stroke-width="16" stroke-linecap="round"
+    stroke-dasharray="393.1 578.1" transform="rotate(-90 128 128)"/>
+</svg>

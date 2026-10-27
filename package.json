@@ -1,0 +1,166 @@
+{
+  "name": "local-time-ledger",
+  "displayName": "Local Time Ledger",
+  "description": "Automatic, private coding time tracking per project. All data stays in a plain JSON Lines file on your machine. No account, no telemetry. Optional Pro adds all time history and timesheet export.",
+  "version": "0.2.0",
+  "publisher": "tidyloom",
+  "author": {
+    "name": "Tidyloom"
+  },
+  "license": "MIT",
+  "icon": "media/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tidyloom/local-time-ledger.git"
+  },
+  "engines": {
+    "vscode": "^1.126.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "time tracking",
+    "time tracker",
+    "offline",
+    "privacy",
+    "productivity",
+    "coding time",
+    "timesheet"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": true
+    },
+    "virtualWorkspaces": true
+  },
+  "contributes": {
+    "commands": [
+      {
+        "command": "localTimeLedger.showReport",
+        "title": "Show Report",
+        "category": "Local Time Ledger"
+      },
+      {
+        "command": "localTimeLedger.openDataFolder",
+        "title": "Open Data Folder",
+        "category": "Local Time Ledger"
+      },
+      {
+        "command": "localTimeLedger.pause",
+        "title": "Pause Tracking",
+        "category": "Local Time Ledger"
+      },
+      {
+        "command": "localTimeLedger.resume",
+        "title": "Resume Tracking",
+        "category": "Local Time Ledger"
+      },
+      {
+        "command": "localTimeLedger.refresh",
+        "title": "Refresh",
+        "category": "Local Time Ledger",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "localTimeLedger.exportTimesheet",
+        "title": "Export Timesheet (Pro)",
+        "category": "Local Time Ledger"
+      },
+      {
+        "command": "localTimeLedger.enterLicense",
+        "title": "Enter Pro License Key",
+        "category": "Local Time Ledger"
+      },
+      {
+        "command": "localTimeLedger.recheckLicense",
+        "title": "Re-check Pro License",
+        "category": "Local Time Ledger"
+      },
+      {
+        "command": "localTimeLedger.removeLicense",
+        "title": "Remove Pro License",
+        "category": "Local Time Ledger"
+      },
+      {
+        "command": "localTimeLedger.aboutPro",
+        "title": "About Pro",
+        "category": "Local Time Ledger"
+      }
+    ],
+    "views": {
+      "explorer": [
+        {
+          "id": "localTimeLedger.summary",
+          "name": "Time Ledger"
+        }
+      ]
+    },
+    "menus": {
+      "view/title": [
+        {
+          "command": "localTimeLedger.refresh",
+          "when": "view == localTimeLedger.summary",
+          "group": "navigation"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Local Time Ledger",
+      "properties": {
+        "localTimeLedger.idleMinutes": {
+          "type": "number",
+          "default": 5,
+          "minimum": 1,
+          "maximum": 60,
+          "description": "Minutes without editor activity after which the current stretch of work ends. Idle time is not counted."
+        },
+        "localTimeLedger.showStatusBar": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show today's tracked time in the status bar."
+        },
+        "localTimeLedger.projectName": {
+          "type": "string",
+          "default": "",
+          "scope": "resource",
+          "description": "Name to record for this workspace. Leave empty to use the workspace name."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "node scripts/build.mjs",
+    "typecheck": "tsc -p . --noEmit && tsc -p tsconfig.test.json --noEmit",
+    "lint": "eslint .",
+    "compile-tests": "tsc -p tsconfig.test.json",
+    "test:unit": "npm run compile-tests && mocha --ui bdd \"out/test/unit/**/*.test.js\"",
+    "test:integration": "npm run build && npm run compile-tests && node out/test/integration/runTest.js",
+    "icon": "node scripts/make-icon.mjs",
+    "check": "npm run lint && npm run typecheck && npm run test:unit && npm run test:integration"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@resvg/resvg-js": "^2.6.2",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^22.20.5",
+    "@types/vscode": "^1.125.0",
+    "@vscode/test-electron": "^3.1.0",
+    "@vscode/vsce": "^4.0.0",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.13.0",
+    "mocha": "^12.0.3",
+    "ovsx": "^1.3.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.0"
+  },
+  "extensionKind": [
+    "ui",
+    "workspace"
+  ]
+}
