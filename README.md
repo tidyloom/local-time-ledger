@@ -62,7 +62,7 @@ The free edition is the full tracker described under Features, with the last 30 
 - **All time history.** The Time Ledger panel and the report show every day you have tracked, not only the last 30 days.
 - **Timesheet export to CSV, Markdown and printable HTML.** Pick a range (this week, last week, this month, last month, last 30 days, all time or custom dates), all projects or one project, and a format. Each row is one day and one project, with decimal hours for invoices. The HTML page is self contained and has print styles, so you can print it or save it as PDF from your browser. CSV cells are protected against spreadsheet formula injection.
 
-Pro is a one-time purchase of 19 USD on Gumroad: <https://tidyloomdev.gumroad.com/l/hsflch>. One purchase covers up to 3 machines. Gumroad sends a license key with the receipt. Refunds are available within 14 days.
+Pro is a one-time purchase of 19 USD on Gumroad: <https://tidyloomdev.gumroad.com/l/hsflch>. One purchase covers up to 3 machines. Gumroad sends a license key with the receipt. The 3 machine limit is checked when you activate a key. Re-checking a key on a machine where it is already active never counts as a new machine and never locks you out. If you replace a machine and hit the limit, open an issue on the GitHub repo for help, and never paste your key there. Refunds are available within 14 days.
 
 ### Activating Pro
 
