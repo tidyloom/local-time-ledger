@@ -124,6 +124,21 @@
           "default": true,
           "description": "Show today's tracked time in the status bar."
         },
+        "localTimeLedger.clients": {
+          "type": "object",
+          "default": {},
+          "scope": "application",
+          "markdownDescription": "Pro: clients and hourly rates for the timesheet export. Maps a project name to a client and a rate, for example `{ \"my-app\": { \"client\": \"Example Client\", \"hourlyRate\": 50, \"currency\": \"EUR\" } }`. Priced projects get an amount per row and a Billing section. Amounts are billed per minute and currencies are never mixed. Stored only in your settings.",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "client": { "type": "string" },
+              "hourlyRate": { "type": "number", "minimum": 0 },
+              "currency": { "type": "string" }
+            },
+            "required": ["hourlyRate"]
+          }
+        },
         "localTimeLedger.projectName": {
           "type": "string",
           "default": "",

@@ -34,6 +34,7 @@ Pro commands:
 - `localTimeLedger.idleMinutes` (default 5, from 1 to 60): minutes without activity before a stretch of work ends.
 - `localTimeLedger.showStatusBar` (default true): show today's time in the status bar.
 - `localTimeLedger.projectName` (default empty): the name recorded for this workspace. Empty means the workspace name.
+- `localTimeLedger.clients` (Pro, default empty): client and hourly rate per project for the timesheet export.
 
 ## Your data
 
@@ -61,6 +62,7 @@ The free edition is the full tracker described under Features, with the last 30 
 
 - **All time history.** The Time Ledger panel and the report show every day you have tracked, not only the last 30 days.
 - **Timesheet export to CSV, Markdown and printable HTML.** Pick a range (this week, last week, this month, last month, last 30 days, all time or custom dates), all projects or one project, and a format. Each row is one day and one project, with decimal hours for invoices. The HTML page is self contained and has print styles, so you can print it or save it as PDF from your browser. CSV cells are protected against spreadsheet formula injection.
+- **Clients and hourly rates.** Set a client and an hourly rate per project in the `localTimeLedger.clients` setting, for example `{ "my-app": { "client": "Example Client", "hourlyRate": 50, "currency": "EUR" } }`. The timesheet export then adds the client, rate and amount to each priced row and a Billing section with the amount due per currency. Time is billed per minute, currencies are never added together and projects without a rate are listed as not priced. Rates live only in your settings.
 
 Pro is a one-time purchase of 19 USD on Gumroad: <https://tidyloomdev.gumroad.com/l/hsflch>. One purchase covers up to 3 machines. Gumroad sends a license key with the receipt. The 3 machine limit is checked when you activate a key. Re-checking a key on a machine where it is already active never counts as a new machine and never locks you out. If you replace a machine and hit the limit, open an issue on the GitHub repo for help, and never paste your key there. Refunds are available within 14 days.
 

@@ -3,6 +3,7 @@
  * Markdown or a printable HTML page. No file, editor or network calls here.
  */
 
+import { amountCents, billTimesheet, formatMoney, type Bill, type Rates } from './billing';
 import { clip, splitByDay, unionLength } from './report';
 import type { Segment } from './segment';
 import { dayKey, formatDuration, HOUR, MINUTE, startOfDay, startOfNextDay, startOfWeek } from './time';
@@ -101,10 +102,20 @@ export function csvCell(text: string): string {
   return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
 
-export function renderCsv(t: Timesheet): string {
-  const lines = [['Date', 'Project', 'Hours', 'Minutes']];
+/** With rates, every priced row also gets client, rate, currency and amount. Unpriced rows leave them empty. */
+export function renderCsv(t: Timesheet, rates?: Rates, bill?: Bill): string {
+  const priced = bill !== undefined && rates !== undefined;
+  const lines = [priced ? ['Date', 'Project', 'Hours', 'Minutes', 'Client', 'Hourly rate', 'Currency', 'Amount'] : ['Date', 'Project', 'Hours', 'Minutes']];
   for (const r of t.rows) {
-    lines.push([r.day, r.project, decimalHours(r.total), minutes(r.total)]);
+    const base = [r.day, r.project, decimalHours(r.total), minutes(r.total)];
+    const rate = priced ? rates.get(r.project) : undefined;
+    if (!priced) {
+      lines.push(base);
+    } else if (rate) {
+      lines.push([...base, rate.client, String(rate.hourlyRate), rate.currency, (amountCents(r.total, rate.hourlyRate) / 100).toFixed(2)]);
+    } else {
+      lines.push([...base, '', '', '', '']);
+    }
   }
   return lines.map((cells) => cells.map(csvCell).join(',')).join('\r\n') + '\r\n';
 }
@@ -120,7 +131,27 @@ function scopeLine(t: Timesheet): string {
 
 const OVERLAP_NOTE = 'Each project is totalled on its own. The overall total counts time that overlaps in two projects once.';
 
-export function renderTimesheetMarkdown(t: Timesheet, generatedAt: number): string {
+const UNRATED_NOTE = 'Not priced (no hourly rate set):';
+
+function billMarkdown(bill: Bill): string[] {
+  const lines = ['', '## Billing', '', '| Client | Project | Hours | Rate | Amount |', '| --- | --- | ---: | ---: | ---: |'];
+  for (const l of bill.lines) {
+    lines.push(
+      `| ${mdCell(l.client)} | ${mdCell(l.project)} | ${decimalHours(l.total)} | ${mdCell(formatMoney(Math.round(l.hourlyRate * 100), l.currency))} | ${mdCell(formatMoney(l.amountCents, l.currency))} |`,
+    );
+  }
+  lines.push('');
+  for (const c of bill.totals) {
+    lines.push(`**Amount due: ${mdCell(formatMoney(c.amountCents, c.currency))}**`, '');
+  }
+  if (bill.unrated.length > 0) {
+    lines.push(`${UNRATED_NOTE} ${bill.unrated.map(mdCell).join(', ')}.`, '');
+  }
+  lines.pop();
+  return lines;
+}
+
+export function renderTimesheetMarkdown(t: Timesheet, generatedAt: number, bill?: Bill): string {
   const lines = [`# Timesheet: ${mdCell(t.title)}`, '', mdCell(scopeLine(t)), ''];
   if (t.rows.length === 0) {
     lines.push('Nothing tracked in this range.', '');
@@ -137,6 +168,7 @@ export function renderTimesheetMarkdown(t: Timesheet, generatedAt: number): stri
   lines.push(
     '',
     `**Total: ${decimalHours(t.total)} hours (${formatDuration(t.total)})**`,
+    ...(bill ? billMarkdown(bill) : []),
     '',
     `${OVERLAP_NOTE} Generated ${new Date(generatedAt).toLocaleString()} by Local Time Ledger. Times use your local time zone.`,
     '',
@@ -161,7 +193,28 @@ footer { color: #555; font-size: 12px; margin-top: 2rem; }
 @media print { body { margin: 0; max-width: none; } @page { margin: 15mm; } tr { break-inside: avoid; } }
 `;
 
-export function renderTimesheetHtml(t: Timesheet, generatedAt: number): string {
+function billHtml(bill: Bill): string[] {
+  const e = escapeHtml;
+  const out = [
+    '<h2>Billing</h2>',
+    '<table>',
+    '<thead><tr><th>Client</th><th>Project</th><th class="num">Hours</th><th class="num">Rate</th><th class="num">Amount</th></tr></thead>',
+    '<tbody>',
+    ...bill.lines.map(
+      (l) =>
+        `<tr><td>${e(l.client)}</td><td>${e(l.project)}</td><td class="num">${decimalHours(l.total)}</td><td class="num">${e(formatMoney(Math.round(l.hourlyRate * 100), l.currency))}</td><td class="num">${e(formatMoney(l.amountCents, l.currency))}</td></tr>`,
+    ),
+    '</tbody>',
+    `<tfoot>${bill.totals.map((c) => `<tr><td colspan="4">Amount due</td><td class="num">${e(formatMoney(c.amountCents, c.currency))}</td></tr>`).join('')}</tfoot>`,
+    '</table>',
+  ];
+  if (bill.unrated.length > 0) {
+    out.push(`<p class="meta">${e(`${UNRATED_NOTE} ${bill.unrated.join(', ')}.`)}</p>`);
+  }
+  return out;
+}
+
+export function renderTimesheetHtml(t: Timesheet, generatedAt: number, bill?: Bill): string {
   const e = escapeHtml;
   const body: string[] = [`<h1>Timesheet: ${e(t.title)}</h1>`, `<p class="meta">${e(scopeLine(t))}</p>`];
   if (t.rows.length === 0) {
@@ -187,6 +240,7 @@ export function renderTimesheetHtml(t: Timesheet, generatedAt: number): string {
       ),
       '</tbody>',
       '</table>',
+      ...(bill ? billHtml(bill) : []),
     );
   }
   body.push(`<footer>${e(OVERLAP_NOTE)} Generated ${e(new Date(generatedAt).toLocaleString())} by Local Time Ledger. Times use your local time zone.</footer>`);
@@ -208,14 +262,15 @@ export function renderTimesheetHtml(t: Timesheet, generatedAt: number): string {
   ].join('\n');
 }
 
-export function renderTimesheet(t: Timesheet, format: TimesheetFormat, generatedAt: number): string {
+export function renderTimesheet(t: Timesheet, format: TimesheetFormat, generatedAt: number, rates?: Rates): string {
+  const bill = rates ? billTimesheet(t, rates) : undefined;
   switch (format) {
     case 'csv':
-      return renderCsv(t);
+      return renderCsv(t, rates, bill);
     case 'markdown':
-      return renderTimesheetMarkdown(t, generatedAt);
+      return renderTimesheetMarkdown(t, generatedAt, bill);
     case 'html':
-      return renderTimesheetHtml(t, generatedAt);
+      return renderTimesheetHtml(t, generatedAt, bill);
   }
 }
 

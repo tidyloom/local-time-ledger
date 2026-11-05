@@ -16,6 +16,7 @@ import {
   type DateRange,
   type TimesheetFormat,
 } from './core/export';
+import { parseRates } from './core/billing';
 import { allTimeHistory } from './core/report';
 import type { Segment } from './core/segment';
 import { startOfNextDay } from './core/time';
@@ -189,7 +190,11 @@ async function exportTimesheet(host: ProHost, args: ExportArgs = {}): Promise<st
   if (!target) {
     return undefined;
   }
-  await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(renderTimesheet(sheet, format, now)));
+  const { rates, problems } = parseRates(vscode.workspace.getConfiguration('localTimeLedger').get<unknown>('clients'));
+  if (problems.length > 0) {
+    void vscode.window.showWarningMessage(`Local Time Ledger: ${problems.join(' ')}`);
+  }
+  await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(renderTimesheet(sheet, format, now, rates)));
   if (args.quiet !== true) {
     const open = format === 'html' ? 'Open in Browser' : 'Open';
     void vscode.window.showInformationMessage(`Timesheet saved to ${path.basename(target.fsPath)}.`, open).then(async (choice) => {

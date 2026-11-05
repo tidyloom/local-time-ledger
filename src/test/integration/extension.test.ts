@@ -163,6 +163,27 @@ describe('Local Time Ledger in the editor', () => {
       assert.match(fs.readFileSync(target, 'utf8'), re);
     }
 
+    const config = vscode.workspace.getConfiguration('localTimeLedger');
+    await config.update('clients', { 'old-project': { client: 'Example Client', hourlyRate: 50, currency: 'EUR' } }, vscode.ConfigurationTarget.Global);
+    try {
+      const priced = path.join(dir, 'priced.csv');
+      const written = await vscode.commands.executeCommand('localTimeLedger.exportTimesheet', {
+        format: 'csv',
+        firstDay: '2024-06-01',
+        lastDay: '2024-06-30',
+        project: '',
+        target: priced,
+        quiet: true,
+      });
+      assert.equal(written, priced);
+      assert.equal(
+        fs.readFileSync(priced, 'utf8'),
+        'Date,Project,Hours,Minutes,Client,Hourly rate,Currency,Amount\r\n2024-06-03,old-project,2.00,120,Example Client,50,EUR,100.00\r\n',
+      );
+    } finally {
+      await config.update('clients', undefined, vscode.ConfigurationTarget.Global);
+    }
+
     await vscode.commands.executeCommand('localTimeLedger.removeLicense', { skipConfirm: true });
     assert.equal(api.license.isPro(), false);
     assert.equal((await api.summary()).history.label, 'Last 30 days');
