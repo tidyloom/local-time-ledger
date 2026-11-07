@@ -14,6 +14,21 @@ It works in VSCodium, Cursor, Windsurf (Devin Desktop) and VS Code. There is no 
 - **Several windows at once.** Overlapping time from two windows is counted once.
 - **Pause and resume.** Stop tracking for a while with one command.
 
+
+## Screenshots
+
+Status bar timer (today total):
+
+![Status bar showing today total](media/screenshot-status-bar.png)
+
+Time Ledger panel in the Explorer (today expanded):
+
+![Time Ledger today view](media/screenshot-today-view.png)
+
+Pro timesheet export (printable HTML, with clients and hourly rates):
+
+![Timesheet export HTML](media/screenshot-timesheet-export.png)
+
 ## Commands
 
 - `Local Time Ledger: Show Report`
