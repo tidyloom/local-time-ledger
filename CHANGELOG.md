@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0 (2026-11-08)
+
+- Pro: clients and hourly rates in the timesheet export. The `localTimeLedger.clients` setting maps a project to a client, hourly rate and currency. CSV, Markdown and HTML then include billing columns and an amount due section. Time is billed per minute, currencies are never added together, and projects without a rate stay listed as not priced.
+- README screenshots of the status bar, the Time Ledger today view and a Pro timesheet export.
+- The README now explains that the 3 machine limit is checked only when a key is first activated. Re-checks do not count as a new machine.
+
 ## 0.2.0 (2026-10-27)
 
 First release with the optional Pro edition. Every free feature works as before, with no key.

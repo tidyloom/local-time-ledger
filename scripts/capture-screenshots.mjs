@@ -6,7 +6,7 @@
  * Captures with Chrome headless under the caller's DISPLAY (use xvfb-run).
  */
 import { spawnSync } from 'node:child_process';
-import { mkdirSync, writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { mkdirSync, writeFileSync, existsSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
@@ -28,10 +28,6 @@ if (!existsSync(exportPath)) {
 const { buildTimesheet, customRange, renderTimesheet } = require(exportPath);
 const { HOUR, MINUTE, formatDuration } = require(timePath);
 const { parseRates } = require(billingPath);
-
-function pad(n) {
-  return n < 10 ? `0${n}` : String(n);
-}
 
 const chrome =
   process.env.CHROME_PATH ||

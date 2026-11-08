@@ -2,7 +2,7 @@
   "name": "local-time-ledger",
   "displayName": "Local Time Ledger",
   "description": "Automatic, private coding time tracking per project. All data stays in a plain JSON Lines file on your machine. No account, no telemetry. Optional Pro adds all time history and timesheet export.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "tidyloom",
   "author": {
     "name": "Tidyloom"
