@@ -17,6 +17,10 @@ export interface Segment {
   readonly end: number;
   readonly project: string;
   readonly language: string;
+  /** Optional short note added in the Pro session editor. */
+  readonly note?: string;
+  /** Optional client label added in the Pro session editor. */
+  readonly client?: string;
 }
 
 interface SegmentLine {
@@ -25,6 +29,8 @@ interface SegmentLine {
   end: string;
   project: string;
   language: string;
+  note?: string;
+  client?: string;
 }
 
 export function serializeSegment(seg: Segment): string {
@@ -35,6 +41,12 @@ export function serializeSegment(seg: Segment): string {
     project: seg.project,
     language: seg.language,
   };
+  if (seg.note !== undefined && seg.note !== '') {
+    line.note = seg.note;
+  }
+  if (seg.client !== undefined && seg.client !== '') {
+    line.client = seg.client;
+  }
   return JSON.stringify(line);
 }
 
@@ -64,7 +76,10 @@ export function parseSegmentLine(line: string): Segment | undefined {
   }
   const project = typeof raw.project === 'string' && raw.project !== '' ? raw.project : 'unknown';
   const language = typeof raw.language === 'string' && raw.language !== '' ? raw.language : 'other';
-  return { start, end, project, language };
+  const seg: Segment = { start, end, project, language };
+  const note = typeof raw.note === 'string' && raw.note !== '' ? raw.note : undefined;
+  const client = typeof raw.client === 'string' && raw.client !== '' ? raw.client : undefined;
+  return { ...seg, ...(note !== undefined ? { note } : {}), ...(client !== undefined ? { client } : {}) };
 }
 
 export interface ParseResult {
