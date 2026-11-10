@@ -25,6 +25,7 @@ import { GUMROAD_PRODUCT_URL } from './pro/gumroad';
 import type { LicenseProvider } from './pro/license';
 import { parseStoredLicense, serializeStoredLicense } from './pro/storedLicense';
 import { postVerify } from './pro/transport';
+import { editSessions, undoSessionEdit, type SessionEditArgs, type SessionHost } from './sessionEditor';
 
 export const LICENSE_STATE_KEY = 'localTimeLedger.proLicense';
 
@@ -35,6 +36,8 @@ export interface ProHost {
   flush(): Promise<void>;
   /** Every tracked segment, all time, including what this window has not written yet. */
   readAll(): Promise<Segment[]>;
+  /** The Pro session editor reads and rewrites stored sessions only. */
+  sessions: Omit<SessionHost, 'isPro' | 'flush' | 'offerPro'>;
 }
 
 /** Arguments that let a caller (or a test) skip the pickers. All are optional. */
@@ -296,6 +299,10 @@ async function removeLicense(host: ProHost, skipConfirm: boolean): Promise<void>
   void vscode.window.showInformationMessage('The Pro license was removed from this machine. The free edition is active.');
 }
 
+function sessionHost(host: ProHost): SessionHost {
+  return { ...host.sessions, isPro: () => host.license().isPro(), flush: () => host.flush(), offerPro };
+}
+
 export function registerProCommands(context: vscode.ExtensionContext, host: ProHost): void {
   context.subscriptions.push(
     vscode.commands.registerCommand('localTimeLedger.enterLicense', () => enterLicense(host)),
@@ -305,5 +312,7 @@ export function registerProCommands(context: vscode.ExtensionContext, host: ProH
     ),
     vscode.commands.registerCommand('localTimeLedger.exportTimesheet', (args?: ExportArgs) => exportTimesheet(host, args)),
     vscode.commands.registerCommand('localTimeLedger.aboutPro', showAboutPro),
+    vscode.commands.registerCommand('localTimeLedger.editSessions', (args?: SessionEditArgs) => editSessions(sessionHost(host), args)),
+    vscode.commands.registerCommand('localTimeLedger.undoSessionEdit', () => undoSessionEdit(sessionHost(host))),
   );
 }

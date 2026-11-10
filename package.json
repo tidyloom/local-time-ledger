@@ -72,6 +72,16 @@
         "category": "Local Time Ledger"
       },
       {
+        "command": "localTimeLedger.editSessions",
+        "title": "Edit Sessions (Pro)",
+        "category": "Local Time Ledger"
+      },
+      {
+        "command": "localTimeLedger.undoSessionEdit",
+        "title": "Undo Last Session Edit (Pro)",
+        "category": "Local Time Ledger"
+      },
+      {
         "command": "localTimeLedger.enterLicense",
         "title": "Enter Pro License Key",
         "category": "Local Time Ledger"

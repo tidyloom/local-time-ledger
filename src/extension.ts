@@ -213,6 +213,22 @@ export function activate(context: vscode.ExtensionContext): LocalTimeLedgerApi {
       const result = await store.read(from, startOfNextDay(now));
       return [...result.segments, ...tracker.peek()];
     },
+    sessions: {
+      readStored: async () => {
+        const now = Date.now();
+        const from = (await store.earliestMonth()) ?? historyStart(now);
+        const result = await store.read(from, startOfNextDay(now));
+        return result.segments;
+      },
+      apply: (removed, added) => {
+        store.applyEdit(removed, added);
+      },
+      undo: () => store.undoLastEdit(),
+      changed: async () => {
+        await reload();
+        await render();
+      },
+    },
   });
 
   const tick = setInterval(() => {

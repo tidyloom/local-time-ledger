@@ -32,6 +32,8 @@ describe('Local Time Ledger in the editor', () => {
       'recheckLicense',
       'removeLicense',
       'aboutPro',
+      'editSessions',
+      'undoSessionEdit',
     ]) {
       assert.ok(all.includes(`localTimeLedger.${c}`), c);
     }
@@ -188,5 +190,65 @@ describe('Local Time Ledger in the editor', () => {
     assert.equal(api.license.isPro(), false);
     assert.equal((await api.summary()).history.label, 'Last 30 days');
     fs.rmSync(dir, { recursive: true, force: true });
+  });
+  it('edits, splits, merges, deletes and undoes sessions only with a Pro license', async () => {
+    const testing = api.testing;
+    assert.ok(testing, 'test hooks exist in the test host');
+    fs.mkdirSync(api.dataFolder, { recursive: true });
+    const file = path.join(api.dataFolder, 'ledger-2023-03.jsonl');
+    const t0 = new Date(2023, 2, 6, 9).getTime();
+    const line = (a: number, b: number): string =>
+      JSON.stringify({ v: 1, start: new Date(a).toISOString(), end: new Date(b).toISOString(), project: 'edit-project', language: 'go' });
+    const original = line(t0, t0 + 3_600_000) + '\n';
+    fs.writeFileSync(file, original);
+    const ref = { start: new Date(t0).toISOString(), project: 'edit-project' };
+
+    // Free edition: nothing is edited and the file is untouched.
+    assert.equal(api.license.isPro(), false);
+    const refused = await vscode.commands.executeCommand('localTimeLedger.editSessions', { ...ref, op: 'delete' });
+    assert.equal(refused, false);
+    assert.equal(fs.readFileSync(file, 'utf8'), original);
+
+    await testing.setStoredLicense(
+      serializeStoredLicense({
+        productId: GUMROAD_PRODUCT_ID,
+        licenseKey: 'FAKEFAKE-00000000-00000000-00000000',
+        saleId: 'FAKE-SALE',
+        uses: 1,
+        mode: 'activation',
+        checkedAt: '2026-01-01T00:00:00.000Z',
+      }),
+    );
+    try {
+      const split = await vscode.commands.executeCommand('localTimeLedger.editSessions', {
+        ...ref,
+        op: 'split',
+        splitAt: new Date(t0 + 1_800_000).toISOString(),
+      });
+      assert.equal(split, true);
+      assert.equal(fs.readFileSync(file, 'utf8').trim().split('\n').length, 2);
+      const merged = await vscode.commands.executeCommand('localTimeLedger.editSessions', { ...ref, op: 'merge-next' });
+      assert.equal(merged, true);
+      assert.equal(fs.readFileSync(file, 'utf8'), original);
+      const edited = await vscode.commands.executeCommand('localTimeLedger.editSessions', { ...ref, op: 'edit', note: 'fixed', client: 'Acme' });
+      assert.equal(edited, true);
+      assert.match(fs.readFileSync(file, 'utf8'), /"note":"fixed","client":"Acme"/);
+      const bad = await vscode.commands.executeCommand('localTimeLedger.editSessions', {
+        ...ref,
+        op: 'edit',
+        newEnd: new Date(t0 - 60_000).toISOString(),
+      });
+      assert.equal(bad, false);
+      const deleted = await vscode.commands.executeCommand('localTimeLedger.editSessions', { ...ref, op: 'delete' });
+      assert.equal(deleted, true);
+      assert.equal(fs.readFileSync(file, 'utf8'), '');
+      for (let i = 0; i < 5; i++) {
+        await vscode.commands.executeCommand('localTimeLedger.undoSessionEdit');
+      }
+      assert.equal(fs.readFileSync(file, 'utf8'), original);
+    } finally {
+      await vscode.commands.executeCommand('localTimeLedger.removeLicense', { skipConfirm: true });
+      fs.rmSync(file, { force: true });
+    }
   });
 });
