@@ -39,6 +39,8 @@ Pro timesheet export (printable HTML, with clients and hourly rates):
 Pro commands:
 
 - `Local Time Ledger: Export Timesheet (Pro)`
+- `Local Time Ledger: Edit Sessions (Pro)`
+- `Local Time Ledger: Undo Last Session Edit (Pro)`
 - `Local Time Ledger: Enter Pro License Key`
 - `Local Time Ledger: Re-check Pro License`
 - `Local Time Ledger: Remove Pro License`
@@ -64,6 +66,7 @@ There is one file per month, named `ledger-YYYY-MM.jsonl`. Each line is one stre
 - `start` and `end` are UTC timestamps.
 - `project` is the workspace name (or your `projectName` setting).
 - `language` is the editor language of the active file.
+- `note` and `client` are optional. The Pro session editor writes them. Lines without them are fine.
 
 No file names, file contents, paths or keystrokes are recorded. You can open these files in any editor, fix a wrong entry, delete lines or whole months, and back them up or copy them wherever you like. Lines that cannot be read are skipped, so a hand edit never breaks the extension. The folder also contains a short `FORMAT.txt` that explains the format.
 
@@ -78,6 +81,8 @@ The free edition is the full tracker described under Features, with the last 30 
 - **All time history.** The Time Ledger panel and the report show every day you have tracked, not only the last 30 days.
 - **Timesheet export to CSV, Markdown and printable HTML.** Pick a range (this week, last week, this month, last month, last 30 days, all time or custom dates), all projects or one project, and a format. Each row is one day and one project, with decimal hours for invoices. The HTML page is self contained and has print styles, so you can print it or save it as PDF from your browser. CSV cells are protected against spreadsheet formula injection.
 - **Clients and hourly rates.** Set a client and an hourly rate per project in the `localTimeLedger.clients` setting, for example `{ "my-app": { "client": "Example Client", "hourlyRate": 50, "currency": "EUR" } }`. The timesheet export then adds the client, rate and amount to each priced row and a Billing section with the amount due per currency. Time is billed per minute, currencies are never added together and projects without a rate are listed as not priced. Rates live only in your settings.
+
+- **Manual session edits.** Idle detection or a forgotten pause can record the wrong hours, so Pro lets you fix them. Run `Local Time Ledger: Edit Sessions (Pro)`, pick a day and a session, then change its start or end, edit a note or a client label, split it in two, merge it with the previous or next session of the same project, or delete it. Times are local, as `HH:MM` or `YYYY-MM-DD HH:MM`. An end before the start, a session under one minute, a session in the future and an overlap with another session of the same project are refused. Each edit rewrites only the month files it touches, through a temporary file and a rename, and keeps any lines it does not understand. `Local Time Ledger: Undo Last Session Edit (Pro)` takes back the most recent edits, one at a time. The last 50 are kept in `session-edits.jsonl` in the data folder, which you can delete at any time. The session that is still running cannot be edited until it is written to disk. Everything is local and uses no network. Without a Pro key the commands only explain what Pro adds and never change your data. You can still fix your files by hand, as before.
 
 Pro is a one-time purchase of 19 USD on Gumroad: <https://tidyloomdev.gumroad.com/l/hsflch>. One purchase covers up to 3 machines. Gumroad sends a license key with the receipt. The 3 machine limit is checked when you activate a key. Re-checking a key on a machine where it is already active never counts as a new machine and never locks you out. If you replace a machine and hit the limit, open an issue on the GitHub repo for help, and never paste your key there. Refunds are available within 14 days.
 

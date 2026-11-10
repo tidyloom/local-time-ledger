@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- Pro: manual session editor. `Edit Sessions (Pro)` lets you pick a day and a session, then correct its start or end, edit a note and a client label, split it in two, merge it with the previous or next session of the same project, or delete it. Times that end before they start, sessions under one minute, sessions in the future and overlaps with another session of the same project are refused with a message.
+- Pro: `Undo Last Session Edit (Pro)` takes back the most recent edits, one at a time (the last 50 are kept in a local journal file next to your ledger).
+- Edits rewrite only the month files they touch, through a temporary file and a rename, and keep lines the extension does not understand. Everything stays on your machine and there are no new network calls.
+- Ledger lines can now carry an optional `note` and `client` text. Old lines and old versions of the format keep working. The client label is stored with the session and is not used by the timesheet export yet.
+- Free features are unchanged.
+
 ## 0.3.0 (2026-11-08)
 
 - Pro: clients and hourly rates in the timesheet export. The `localTimeLedger.clients` setting maps a project to a client, hourly rate and currency. CSV, Markdown and HTML then include billing columns and an amount due section. Time is billed per minute, currencies are never added together, and projects without a rate stay listed as not priced.
