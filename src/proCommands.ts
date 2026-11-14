@@ -16,7 +16,7 @@ import {
   type DateRange,
   type TimesheetFormat,
 } from './core/export';
-import { parseRates } from './core/billing';
+import { billableByDefault, parseBillableDefault, parseRates } from './core/billing';
 import { allTimeHistory } from './core/report';
 import type { Segment } from './core/segment';
 import { startOfNextDay } from './core/time';
@@ -37,7 +37,7 @@ export interface ProHost {
   /** Every tracked segment, all time, including what this window has not written yet. */
   readAll(): Promise<Segment[]>;
   /** The Pro session editor reads and rewrites stored sessions only. */
-  sessions: Omit<SessionHost, 'isPro' | 'flush' | 'offerPro'>;
+  sessions: Omit<SessionHost, 'isPro' | 'flush' | 'offerPro' | 'billableDefault'>;
 }
 
 /** Arguments that let a caller (or a test) skip the pickers. All are optional. */
@@ -175,6 +175,7 @@ async function exportTimesheet(host: ProHost, args: ExportArgs = {}): Promise<st
     return undefined;
   }
   const sheet = buildTimesheet(segments, range, project);
+  const config = vscode.workspace.getConfiguration('localTimeLedger');
   let target: vscode.Uri | undefined;
   if (args.target !== undefined) {
     target = vscode.Uri.file(args.target);
@@ -193,11 +194,12 @@ async function exportTimesheet(host: ProHost, args: ExportArgs = {}): Promise<st
   if (!target) {
     return undefined;
   }
-  const { rates, problems } = parseRates(vscode.workspace.getConfiguration('localTimeLedger').get<unknown>('clients'));
+  const { rates, problems } = parseRates(config.get<unknown>('clients'));
   if (problems.length > 0) {
     void vscode.window.showWarningMessage(`Local Time Ledger: ${problems.join(' ')}`);
   }
-  await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(renderTimesheet(sheet, format, now, rates)));
+  const mode = parseBillableDefault(config.get<unknown>('billableDefault'));
+  await vscode.workspace.fs.writeFile(target, new TextEncoder().encode(renderTimesheet(sheet, format, now, rates, mode)));
   if (args.quiet !== true) {
     const open = format === 'html' ? 'Open in Browser' : 'Open';
     void vscode.window.showInformationMessage(`Timesheet saved to ${path.basename(target.fsPath)}.`, open).then(async (choice) => {
@@ -299,8 +301,15 @@ async function removeLicense(host: ProHost, skipConfirm: boolean): Promise<void>
   void vscode.window.showInformationMessage('The Pro license was removed from this machine. The free edition is active.');
 }
 
+/** Whether an untagged session counts as billable, read from the settings each time. */
+function billableDefault(s: Segment): boolean {
+  const config = vscode.workspace.getConfiguration('localTimeLedger');
+  const { rates } = parseRates(config.get<unknown>('clients'));
+  return billableByDefault(s.project, s.client, rates, parseBillableDefault(config.get<unknown>('billableDefault')));
+}
+
 function sessionHost(host: ProHost): SessionHost {
-  return { ...host.sessions, isPro: () => host.license().isPro(), flush: () => host.flush(), offerPro };
+  return { ...host.sessions, isPro: () => host.license().isPro(), flush: () => host.flush(), offerPro, billableDefault };
 }
 
 export function registerProCommands(context: vscode.ExtensionContext, host: ProHost): void {

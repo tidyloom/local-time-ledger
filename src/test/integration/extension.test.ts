@@ -180,7 +180,7 @@ describe('Local Time Ledger in the editor', () => {
       assert.equal(written, priced);
       assert.equal(
         fs.readFileSync(priced, 'utf8'),
-        'Date,Project,Hours,Minutes,Client,Hourly rate,Currency,Amount\r\n2024-06-03,old-project,2.00,120,Example Client,50,EUR,100.00\r\n',
+        'Date,Project,Hours,Minutes,Client,Hourly rate,Currency,Amount,Billable hours,Billable minutes\r\n2024-06-03,old-project,2.00,120,Example Client,50,EUR,100.00,2.00,120\r\n',
       );
     } finally {
       await config.update('clients', undefined, vscode.ConfigurationTarget.Global);
@@ -249,6 +249,98 @@ describe('Local Time Ledger in the editor', () => {
     } finally {
       await vscode.commands.executeCommand('localTimeLedger.removeLicense', { skipConfirm: true });
       fs.rmSync(file, { force: true });
+    }
+  });
+  it('tags sessions billable, splits into billable parts and exports billable hours per client', async () => {
+    const testing = api.testing;
+    assert.ok(testing, 'test hooks exist in the test host');
+    fs.mkdirSync(api.dataFolder, { recursive: true });
+    const file = path.join(api.dataFolder, 'ledger-2022-05.jsonl');
+    const t0 = new Date(2022, 4, 9, 9).getTime();
+    // A line in the 0.3.0 format, without note, client or billable.
+    const original =
+      JSON.stringify({ v: 1, start: new Date(t0).toISOString(), end: new Date(t0 + 2 * 3_600_000).toISOString(), project: 'bill-project', language: 'go' }) + '\n';
+    fs.writeFileSync(file, original);
+    const ref = { start: new Date(t0).toISOString(), project: 'bill-project' };
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ltl-billable-'));
+    const exportCsv = async (name: string): Promise<string> => {
+      const target = path.join(dir, name);
+      await vscode.commands.executeCommand('localTimeLedger.exportTimesheet', {
+        format: name.endsWith('.md') ? 'markdown' : 'csv',
+        firstDay: '2022-05-09',
+        lastDay: '2022-05-09',
+        project: '',
+        target,
+        quiet: true,
+      });
+      return fs.readFileSync(target, 'utf8');
+    };
+
+    assert.equal(api.license.isPro(), false);
+    const refused = await vscode.commands.executeCommand('localTimeLedger.editSessions', { ...ref, op: 'edit', billable: 'billable' });
+    assert.equal(refused, false);
+    assert.equal(fs.readFileSync(file, 'utf8'), original);
+
+    await testing.setStoredLicense(
+      serializeStoredLicense({
+        productId: GUMROAD_PRODUCT_ID,
+        licenseKey: 'FAKEFAKE-00000000-00000000-00000000',
+        saleId: 'FAKE-SALE',
+        uses: 1,
+        mode: 'activation',
+        checkedAt: '2026-01-01T00:00:00.000Z',
+      }),
+    );
+    const config = vscode.workspace.getConfiguration('localTimeLedger');
+    await config.update('clients', { 'bill-project': { client: 'Example Client', hourlyRate: 60, currency: 'EUR' } }, vscode.ConfigurationTarget.Global);
+    try {
+      // Untagged time in a priced project is billable by default, so the old amount is unchanged.
+      assert.match(await exportCsv('a.csv'), /\r\n2022-05-09,bill-project,2\.00,120,Example Client,60,EUR,120\.00,2\.00,120\r\n$/);
+
+      const split = await vscode.commands.executeCommand('localTimeLedger.editSessions', {
+        ...ref,
+        op: 'split',
+        splitAt: new Date(t0 + 3_600_000).toISOString(),
+        firstBillable: 'billable',
+        secondBillable: 'non-billable',
+      });
+      assert.equal(split, true);
+      const text = fs.readFileSync(file, 'utf8');
+      assert.match(text, /"billable":true/);
+      assert.match(text, /"billable":false/);
+      assert.match(await exportCsv('b.csv'), /\r\n2022-05-09,bill-project,2\.00,120,Example Client,60,EUR,60\.00,1\.00,60\r\n$/);
+
+      // Billable and non-billable parts cannot be merged back silently.
+      const merge = await vscode.commands.executeCommand('localTimeLedger.editSessions', { ...ref, op: 'merge-next' });
+      assert.equal(merge, false);
+
+      const relabel = await vscode.commands.executeCommand('localTimeLedger.editSessions', { ...ref, op: 'edit', client: 'Other Client' });
+      assert.equal(relabel, true);
+      const md = await exportCsv('c.md');
+      assert.match(md, /## Billable time per client/);
+      assert.match(md, /\| Example Client \| 1\.00 \| 0\.00 \| 1\.00 \| 0\.00 EUR \|/);
+      assert.match(md, /\| Other Client \| 1\.00 \| 1\.00 \| 0\.00 \| 60\.00 EUR \|/);
+
+      await config.update('billableDefault', 'never', vscode.ConfigurationTarget.Global);
+      const cleared = await vscode.commands.executeCommand('localTimeLedger.editSessions', { ...ref, op: 'edit', billable: 'default' });
+      assert.equal(cleared, true);
+      assert.match(await exportCsv('d.csv'), /Other Client,60,EUR,0\.00,0\.00,0\r\n/);
+
+      await assert.rejects(
+        Promise.resolve(vscode.commands.executeCommand('localTimeLedger.editSessions', { ...ref, op: 'edit', billable: 'maybe' })),
+        /billable tag/,
+      );
+
+      for (let i = 0; i < 3; i++) {
+        assert.equal(await vscode.commands.executeCommand('localTimeLedger.undoSessionEdit'), true);
+      }
+      assert.equal(fs.readFileSync(file, 'utf8'), original);
+    } finally {
+      await config.update('clients', undefined, vscode.ConfigurationTarget.Global);
+      await config.update('billableDefault', undefined, vscode.ConfigurationTarget.Global);
+      await vscode.commands.executeCommand('localTimeLedger.removeLicense', { skipConfirm: true });
+      fs.rmSync(file, { force: true });
+      fs.rmSync(dir, { recursive: true, force: true });
     }
   });
 });

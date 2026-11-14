@@ -149,6 +149,18 @@
             "required": ["hourlyRate"]
           }
         },
+        "localTimeLedger.billableDefault": {
+          "type": "string",
+          "enum": ["withClient", "always", "never"],
+          "enumDescriptions": [
+            "Untagged sessions are billable when they have a client label or their project is listed in Clients.",
+            "Untagged sessions are billable.",
+            "Untagged sessions are not billable."
+          ],
+          "default": "withClient",
+          "scope": "application",
+          "markdownDescription": "Pro: whether sessions without a billable tag count as billable in the timesheet export. Tag a single session as billable or not billable with **Edit Sessions (Pro)**. Only billable time is priced."
+        },
         "localTimeLedger.projectName": {
           "type": "string",
           "default": "",

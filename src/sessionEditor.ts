@@ -13,7 +13,9 @@ import {
   splitSession,
   MAX_CLIENT_LENGTH,
   MAX_NOTE_LENGTH,
+  type BillableTag,
   type EditResult,
+  type SplitTags,
 } from './core/edit';
 import type { Segment } from './core/segment';
 import { dayKey, formatDuration } from './core/time';
@@ -30,7 +32,12 @@ export interface SessionHost {
   /** Reload the views after the ledger changed. */
   changed(): Promise<void>;
   offerPro(feature: string): Promise<void>;
+  /** Whether an untagged session counts as billable under the current settings. */
+  billableDefault(s: Segment): boolean;
 }
+
+/** A billable tag in command arguments: set it, clear it, or follow the default. */
+export type BillableArg = 'billable' | 'non-billable' | 'default';
 
 /** Lets a caller (or a test) skip the pickers. Times are ISO strings. */
 export interface SessionEditArgs {
@@ -42,17 +49,40 @@ export interface SessionEditArgs {
   readonly note?: string;
   readonly client?: string;
   readonly splitAt?: string;
+  /** Billable tag for an edit. */
+  readonly billable?: BillableArg;
+  /** Billable tags for the two parts of a split. Left out: the part keeps the session's tag. */
+  readonly firstBillable?: BillableArg;
+  readonly secondBillable?: BillableArg;
 }
 
-type Action = 'start' | 'end' | 'note' | 'client' | 'split' | 'merge-previous' | 'merge-next' | 'delete';
+type Action = 'start' | 'end' | 'note' | 'client' | 'billable' | 'split' | 'merge-previous' | 'merge-next' | 'delete';
+
+function tagOf(arg: BillableArg): BillableTag {
+  return arg === 'default' ? null : arg === 'billable';
+}
+
+function isBillableArg(v: unknown): v is BillableArg {
+  return v === 'billable' || v === 'non-billable' || v === 'default';
+}
+
+/** "billable" or "not billable", plus where that comes from. */
+function billableText(s: Segment, host: SessionHost): string {
+  if (s.billable !== undefined) {
+    return s.billable ? 'billable' : 'not billable';
+  }
+  return `${host.billableDefault(s) ? 'billable' : 'not billable'} (default)`;
+}
 
 function describe(s: Segment): string {
   const t = (ms: number): string => formatLocalDateTime(ms).slice(11);
   return `${t(s.start)} to ${t(s.end)}`;
 }
 
-function detail(s: Segment): string {
-  return [s.project, s.language, s.client ? `client: ${s.client}` : '', s.note ? `note: ${s.note}` : ''].filter((p) => p !== '').join(', ');
+function detail(s: Segment, host: SessionHost): string {
+  return [s.project, s.language, s.client ? `client: ${s.client}` : '', billableText(s, host), s.note ? `note: ${s.note}` : '']
+    .filter((p) => p !== '')
+    .join(', ');
 }
 
 function byStart(a: Segment, b: Segment): number {
@@ -81,7 +111,7 @@ function neighbour(all: readonly Segment[], target: Segment, dir: 1 | -1): Segme
   return i < 0 ? undefined : same[i + dir];
 }
 
-async function chooseSession(all: readonly Segment[]): Promise<Segment | undefined> {
+async function chooseSession(all: readonly Segment[], host: SessionHost): Promise<Segment | undefined> {
   if (all.length === 0) {
     void vscode.window.showInformationMessage('There are no recorded sessions to edit yet.');
     return undefined;
@@ -101,18 +131,19 @@ async function chooseSession(all: readonly Segment[]): Promise<Segment | undefin
   }
   const list = [...(days.get(day.label) ?? [])].sort(byStart);
   const pick = await vscode.window.showQuickPick(
-    list.map((s) => ({ label: describe(s), description: formatDuration(s.end - s.start), detail: detail(s), seg: s })),
+    list.map((s) => ({ label: describe(s), description: formatDuration(s.end - s.start), detail: detail(s, host), seg: s })),
     { title: `Edit Sessions: ${day.label}`, ignoreFocusOut: true },
   );
   return pick?.seg;
 }
 
-async function chooseAction(target: Segment, all: readonly Segment[]): Promise<Action | undefined> {
+async function chooseAction(target: Segment, all: readonly Segment[], host: SessionHost): Promise<Action | undefined> {
   const items: Array<vscode.QuickPickItem & { action: Action }> = [
     { label: 'Change start', description: formatLocalDateTime(target.start), action: 'start' },
     { label: 'Change end', description: formatLocalDateTime(target.end), action: 'end' },
     { label: 'Edit note', description: target.note ?? 'none', action: 'note' },
     { label: 'Edit client label', description: target.client ?? 'none', action: 'client' },
+    { label: 'Set billable or not billable', description: billableText(target, host), action: 'billable' },
     { label: 'Split in two', description: 'at a time you choose', action: 'split' },
   ];
   if (neighbour(all, target, -1)) {
@@ -150,12 +181,35 @@ async function askText(prompt: string, current: string, max: number): Promise<st
   });
 }
 
+async function askBillable(target: Segment, host: SessionHost): Promise<BillableTag | undefined> {
+  const def = host.billableDefault(target) ? 'billable' : 'not billable';
+  const items: Array<vscode.QuickPickItem & { tag: BillableTag }> = [
+    { label: 'Billable', description: 'counts toward billable hours and amounts', tag: true },
+    { label: 'Not billable', description: 'shown in total time only', tag: false },
+    { label: 'Follow the default', description: `now ${def}, set by the billableDefault setting`, tag: null },
+  ];
+  const picked = await vscode.window.showQuickPick(items, { title: `Billable: ${describe(target)} (${target.project})`, ignoreFocusOut: true });
+  return picked?.tag;
+}
+
+async function askSplitTags(target: Segment, host: SessionHost): Promise<SplitTags | undefined> {
+  const items: Array<vscode.QuickPickItem & { tags: SplitTags }> = [
+    { label: 'Keep the billable tag on both parts', description: billableText(target, host), tags: {} },
+    { label: 'First part billable, second part not billable', tags: { first: true, second: false } },
+    { label: 'First part not billable, second part billable', tags: { first: false, second: true } },
+    { label: 'Both parts billable', tags: { first: true, second: true } },
+    { label: 'Both parts not billable', tags: { first: false, second: false } },
+  ];
+  const picked = await vscode.window.showQuickPick(items, { title: 'Split: billable parts', ignoreFocusOut: true });
+  return picked?.tags;
+}
+
 async function interactive(host: SessionHost, all: Segment[], now: number): Promise<boolean | undefined> {
-  const target = await chooseSession(all);
+  const target = await chooseSession(all, host);
   if (!target) {
     return undefined;
   }
-  const action = await chooseAction(target, all);
+  const action = await chooseAction(target, all, host);
   if (!action) {
     return undefined;
   }
@@ -179,13 +233,24 @@ async function interactive(host: SessionHost, all: Segment[], now: number): Prom
       }
       return report(editSession(target, action === 'note' ? { note: v } : { client: v }, all, now), host, 'Session updated.');
     }
+    case 'billable': {
+      const tag = await askBillable(target, host);
+      if (tag === undefined) {
+        return undefined;
+      }
+      return report(editSession(target, { billable: tag }, all, now), host, 'Billable tag updated.');
+    }
     case 'split': {
       const mid = target.start + Math.floor((target.end - target.start) / 2 / 60_000) * 60_000;
       const t = await askTime('Split at.', mid);
       if (t === undefined) {
         return undefined;
       }
-      return report(splitSession(target, t), host, 'Session split in two.');
+      const tags = await askSplitTags(target, host);
+      if (tags === undefined) {
+        return undefined;
+      }
+      return report(splitSession(target, t, tags), host, 'Session split in two.');
     }
     case 'merge-previous':
     case 'merge-next': {
@@ -199,7 +264,7 @@ async function interactive(host: SessionHost, all: Segment[], now: number): Prom
         { modal: true },
         go,
       );
-      return ok === go ? report(mergeSessions(target, other, all, now), host, 'Sessions merged.') : undefined;
+      return ok === go ? report(mergeSessions(target, other, all, now, (s) => host.billableDefault(s)), host, 'Sessions merged.') : undefined;
     }
     case 'delete': {
       const go = 'Delete';
@@ -220,6 +285,11 @@ async function scripted(host: SessionHost, all: Segment[], args: SessionEditArgs
     throw new Error('No stored session starts at that time in that project.');
   }
   const time = (v: string | undefined): number | undefined => (v === undefined ? undefined : Date.parse(v));
+  for (const v of [args.billable, args.firstBillable, args.secondBillable]) {
+    if (v !== undefined && !isBillableArg(v)) {
+      throw new Error('A billable tag must be "billable", "non-billable" or "default".');
+    }
+  }
   switch (args.op) {
     case 'edit': {
       const changes = {
@@ -227,18 +297,26 @@ async function scripted(host: SessionHost, all: Segment[], args: SessionEditArgs
         ...(args.newEnd !== undefined ? { end: Date.parse(args.newEnd) } : {}),
         ...(args.note !== undefined ? { note: args.note } : {}),
         ...(args.client !== undefined ? { client: args.client } : {}),
+        ...(args.billable !== undefined ? { billable: tagOf(args.billable) } : {}),
       };
       return report(editSession(target, changes, all, now), host, 'Session updated.');
     }
     case 'split':
-      return report(splitSession(target, time(args.splitAt) ?? Number.NaN), host, 'Session split in two.');
+      return report(
+        splitSession(target, time(args.splitAt) ?? Number.NaN, {
+          ...(args.firstBillable !== undefined ? { first: tagOf(args.firstBillable) } : {}),
+          ...(args.secondBillable !== undefined ? { second: tagOf(args.secondBillable) } : {}),
+        }),
+        host,
+        'Session split in two.',
+      );
     case 'merge-next':
     case 'merge-previous': {
       const other = neighbour(all, target, args.op === 'merge-next' ? 1 : -1);
       if (!other) {
         throw new Error('There is no session to merge with.');
       }
-      return report(mergeSessions(target, other, all, now), host, 'Sessions merged.');
+      return report(mergeSessions(target, other, all, now, (s) => host.billableDefault(s)), host, 'Sessions merged.');
     }
     case 'delete':
       return report(deleteSession(target), host, 'Session deleted.');
