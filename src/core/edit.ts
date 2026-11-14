@@ -20,6 +20,25 @@ export interface SessionChanges {
   readonly note?: string;
   /** Empty string clears the client. */
   readonly client?: string;
+  /** true or false sets the billable tag, null clears it so the session follows the default. */
+  readonly billable?: boolean | null;
+}
+
+/** A billable tag to set: true, false, or null for "follow the default". */
+export type BillableTag = boolean | null;
+
+/** Billable tags for the two parts of a split. A part left out keeps the tag of the session. */
+export interface SplitTags {
+  readonly first?: BillableTag;
+  readonly second?: BillableTag;
+}
+
+/** Whether an untagged session counts as billable. Supplied by the caller from the settings. */
+export type BillableDefaultOf = (s: Segment) => boolean;
+
+/** Whether a session counts as billable: its own tag, or the default when it has none. */
+export function isBillable(s: Segment, defaultOf: BillableDefaultOf): boolean {
+  return s.billable ?? defaultOf(s);
 }
 
 function fail(error: string): EditResult {
@@ -33,7 +52,8 @@ export function sameSegment(a: Segment, b: Segment): boolean {
     a.project === b.project &&
     a.language === b.language &&
     (a.note ?? '') === (b.note ?? '') &&
-    (a.client ?? '') === (b.client ?? '')
+    (a.client ?? '') === (b.client ?? '') &&
+    a.billable === b.billable
   );
 }
 
@@ -47,9 +67,22 @@ export function cleanText(value: string, max: number, what: string): { value: st
   return { value: cleaned };
 }
 
-function withText(seg: Segment, note: string | undefined, client: string | undefined): Segment {
+/** Rebuilds a session with exactly these optional fields. An undefined billable means untagged. */
+function withText(seg: Segment, note: string | undefined, client: string | undefined, billable: boolean | undefined): Segment {
   const base: Segment = { start: seg.start, end: seg.end, project: seg.project, language: seg.language };
-  return { ...base, ...(note !== undefined && note !== '' ? { note } : {}), ...(client !== undefined && client !== '' ? { client } : {}) };
+  return {
+    ...base,
+    ...(note !== undefined && note !== '' ? { note } : {}),
+    ...(client !== undefined && client !== '' ? { client } : {}),
+    ...(billable !== undefined ? { billable } : {}),
+  };
+}
+
+function tagValue(tag: BillableTag | undefined, current: boolean | undefined): boolean | undefined {
+  if (tag === undefined) {
+    return current;
+  }
+  return tag ?? undefined;
 }
 
 function overlapsOther(candidate: Segment, all: readonly Segment[], skip: readonly Segment[]): Segment | undefined {
@@ -83,7 +116,7 @@ function checkTimes(start: number, end: number, now: number): string | undefined
   return undefined;
 }
 
-/** Edit start, end, note and client of one session. */
+/** Edit start, end, note, client and billable tag of one session. */
 export function editSession(target: Segment, changes: SessionChanges, all: readonly Segment[], now: number): EditResult {
   const start = changes.start ?? target.start;
   const end = changes.end ?? target.end;
@@ -110,7 +143,8 @@ export function editSession(target: Segment, changes: SessionChanges, all: reado
       return fail(bad);
     }
   }
-  const next = withText({ ...target, start, end }, note, client);
+  const billable = tagValue(changes.billable, target.billable);
+  const next = withText({ ...target, start, end }, note, client, billable);
   if (timesChanged) {
     const other = overlapsOther(next, all, [target]);
     if (other) {
@@ -123,20 +157,36 @@ export function editSession(target: Segment, changes: SessionChanges, all: reado
   return { ok: true, removed: [target], added: [next] };
 }
 
-/** Split one session at a time inside it. Both parts keep project, language, note and client. */
-export function splitSession(target: Segment, at: number): EditResult {
+/**
+ * Split one session at a time inside it. Both parts keep project, language, note and client.
+ * Each part keeps the billable tag of the session unless tags gives it its own.
+ */
+export function splitSession(target: Segment, at: number, tags: SplitTags = {}): EditResult {
   if (!Number.isFinite(at) || at - target.start < MIN_SESSION_MS || target.end - at < MIN_SESSION_MS) {
     return fail('Split inside the session, at least one minute from both ends.');
   }
   return {
     ok: true,
     removed: [target],
-    added: [withText({ ...target, end: at }, target.note, target.client), withText({ ...target, start: at }, target.note, target.client)],
+    added: [
+      withText({ ...target, end: at }, target.note, target.client, tagValue(tags.first, target.billable)),
+      withText({ ...target, start: at }, target.note, target.client, tagValue(tags.second, target.billable)),
+    ],
   };
 }
 
-/** Merge two sessions of the same project into one that covers both and the gap between them. */
-export function mergeSessions(a: Segment, b: Segment, all: readonly Segment[], now: number): EditResult {
+/**
+ * Merge two sessions of the same project into one that covers both and the gap between them.
+ * Both must count the same way (billable or not), judged with defaultOf for untagged sessions, so
+ * a merge never turns billable time into non-billable time or back without the user saying so.
+ */
+export function mergeSessions(
+  a: Segment,
+  b: Segment,
+  all: readonly Segment[],
+  now: number,
+  defaultOf: BillableDefaultOf = () => false,
+): EditResult {
   if (a === b) {
     return fail('Pick two different sessions to merge.');
   }
@@ -158,8 +208,15 @@ export function mergeSessions(a: Segment, b: Segment, all: readonly Segment[], n
   if (note.length > MAX_NOTE_LENGTH) {
     return fail(`The joined note would be longer than ${String(MAX_NOTE_LENGTH)} characters. Shorten a note first.`);
   }
+  const billable = isBillable(first, defaultOf);
+  if (billable !== isBillable(second, defaultOf)) {
+    return fail('One session is billable and the other is not. Give them the same billable tag first.');
+  }
   const language = first.end - first.start >= second.end - second.start ? first.language : second.language;
-  const merged = withText({ start, end, project: first.project, language }, note, first.client ?? second.client);
+  const untagged = withText({ start, end, project: first.project, language }, note, first.client ?? second.client, undefined);
+  // Stay untagged only when both were untagged and the default still gives the same answer.
+  const keepUntagged = first.billable === undefined && second.billable === undefined && defaultOf(untagged) === billable;
+  const merged = keepUntagged ? untagged : withText(untagged, note, untagged.client, billable);
   const other = overlapsOther(merged, all, [a, b]);
   if (other) {
     return fail('Another session of the same project lies between them. Merge or delete it first.');

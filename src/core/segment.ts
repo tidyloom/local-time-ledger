@@ -21,6 +21,11 @@ export interface Segment {
   readonly note?: string;
   /** Optional client label added in the Pro session editor. */
   readonly client?: string;
+  /**
+   * Optional billable tag set in the Pro session editor. Undefined means the session follows the
+   * billableDefault setting, so ledgers written before billable tags existed keep working.
+   */
+  readonly billable?: boolean;
 }
 
 interface SegmentLine {
@@ -31,6 +36,7 @@ interface SegmentLine {
   language: string;
   note?: string;
   client?: string;
+  billable?: boolean;
 }
 
 export function serializeSegment(seg: Segment): string {
@@ -46,6 +52,9 @@ export function serializeSegment(seg: Segment): string {
   }
   if (seg.client !== undefined && seg.client !== '') {
     line.client = seg.client;
+  }
+  if (seg.billable !== undefined) {
+    line.billable = seg.billable;
   }
   return JSON.stringify(line);
 }
@@ -79,7 +88,14 @@ export function parseSegmentLine(line: string): Segment | undefined {
   const seg: Segment = { start, end, project, language };
   const note = typeof raw.note === 'string' && raw.note !== '' ? raw.note : undefined;
   const client = typeof raw.client === 'string' && raw.client !== '' ? raw.client : undefined;
-  return { ...seg, ...(note !== undefined ? { note } : {}), ...(client !== undefined ? { client } : {}) };
+  // Anything but a real true or false (missing, null, "yes") means "not tagged", never a guess.
+  const billable = typeof raw.billable === 'boolean' ? raw.billable : undefined;
+  return {
+    ...seg,
+    ...(note !== undefined ? { note } : {}),
+    ...(client !== undefined ? { client } : {}),
+    ...(billable !== undefined ? { billable } : {}),
+  };
 }
 
 export interface ParseResult {

@@ -81,9 +81,10 @@ describe('clients and hourly rates', () => {
   it('adds billing columns and sections to every format', () => {
     const { rates } = parseRates({ 'demo-project': { client: 'Example Client', hourlyRate: 60, currency: 'EUR' } });
     const csv = renderTimesheet(sheet, 'csv', 0, rates).split('\r\n');
-    assert.equal(csv[0], 'Date,Project,Hours,Minutes,Client,Hourly rate,Currency,Amount');
-    assert.ok(csv.includes('2026-01-05,demo-project,1.50,90,Example Client,60,EUR,90.00'));
-    assert.ok(csv.includes('2026-01-05,sample-app,1.00,60,,,,'));
+    // The eight earlier columns keep their values. Billable hours and minutes are added at the end.
+    assert.equal(csv[0], 'Date,Project,Hours,Minutes,Client,Hourly rate,Currency,Amount,Billable hours,Billable minutes');
+    assert.ok(csv.includes('2026-01-05,demo-project,1.50,90,Example Client,60,EUR,90.00,1.50,90'));
+    assert.ok(csv.includes('2026-01-05,sample-app,1.00,60,,,,,0.00,0'));
     const md = renderTimesheet(sheet, 'markdown', 0, rates);
     assert.match(md, /## Billing/);
     assert.match(md, /\*\*Amount due: 110\.00 EUR\*\*/);

@@ -12,6 +12,8 @@ Each ledger-YYYY-MM.jsonl file holds one JSON object per line:
 
 start and end are UTC timestamps (ISO 8601). project is the workspace name. language is the
 editor language id. A line goes into the file of the month its start falls in (local time).
+Lines changed in the Pro session editor may also carry "note", "client" (text) and "billable"
+(true or false). A line without "billable" follows the billable default setting.
 
 You may edit, delete or back up these files at any time. Lines that cannot be read are skipped.
 Overlapping lines are counted once. Nothing in this folder is ever sent anywhere.
