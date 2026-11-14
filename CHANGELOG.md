@@ -5,7 +5,11 @@
 - Pro: manual session editor. `Edit Sessions (Pro)` lets you pick a day and a session, then correct its start or end, edit a note and a client label, split it in two, merge it with the previous or next session of the same project, or delete it. Times that end before they start, sessions under one minute, sessions in the future and overlaps with another session of the same project are refused with a message.
 - Pro: `Undo Last Session Edit (Pro)` takes back the most recent edits, one at a time (the last 50 are kept in a local journal file next to your ledger).
 - Edits rewrite only the month files they touch, through a temporary file and a rename, and keep lines the extension does not understand. Everything stays on your machine and there are no new network calls.
-- Ledger lines can now carry an optional `note` and `client` text. Old lines and old versions of the format keep working. The client label is stored with the session and is not used by the timesheet export yet.
+- Ledger lines can now carry an optional `note` and `client` text. Old lines and old versions of the format keep working. The client label is stored with the session.
+- Pro: billable tags in the session editor. `Set billable or not billable` tags a session as billable, not billable or back to the default, and a split can tag each part on its own. Sessions merge only when both count the same way. Tag changes can be undone like any other edit.
+- Pro: the timesheet export shows billable hours and billable amounts per client next to total time. CSV rows get a client column and billable hours and minutes at the end, and Markdown and HTML get a "Billable time per client" section. Only billable time is priced, a session's client label takes priority over the project's client, and currencies are never added together. The client label from the session editor is now used by the export.
+- New setting `localTimeLedger.billableDefault` (`withClient`, `always` or `never`, default `withClient`) for sessions without a billable tag. With the default, time in projects that have an hourly rate stays billable, so existing exports keep the same amounts.
+- Ledger lines can carry an optional `billable` value (true or false). Lines without it, including every line written by earlier versions, keep working.
 - Free features are unchanged.
 
 ## 0.3.0 (2026-11-08)

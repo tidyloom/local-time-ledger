@@ -52,6 +52,7 @@ Pro commands:
 - `localTimeLedger.showStatusBar` (default true): show today's time in the status bar.
 - `localTimeLedger.projectName` (default empty): the name recorded for this workspace. Empty means the workspace name.
 - `localTimeLedger.clients` (Pro, default empty): client and hourly rate per project for the timesheet export.
+- `localTimeLedger.billableDefault` (Pro, default `withClient`): what sessions without a billable tag count as. `withClient` makes them billable when they have a client label or their project is listed in `clients`, `always` makes them billable and `never` makes them not billable.
 
 ## Your data
 
@@ -66,7 +67,7 @@ There is one file per month, named `ledger-YYYY-MM.jsonl`. Each line is one stre
 - `start` and `end` are UTC timestamps.
 - `project` is the workspace name (or your `projectName` setting).
 - `language` is the editor language of the active file.
-- `note` and `client` are optional. The Pro session editor writes them. Lines without them are fine.
+- `note`, `client` and `billable` (true or false) are optional. The Pro session editor writes them. Lines without them are fine, and a line without `billable` follows the `billableDefault` setting.
 
 No file names, file contents, paths or keystrokes are recorded. You can open these files in any editor, fix a wrong entry, delete lines or whole months, and back them up or copy them wherever you like. Lines that cannot be read are skipped, so a hand edit never breaks the extension. The folder also contains a short `FORMAT.txt` that explains the format.
 
@@ -83,6 +84,8 @@ The free edition is the full tracker described under Features, with the last 30 
 - **Clients and hourly rates.** Set a client and an hourly rate per project in the `localTimeLedger.clients` setting, for example `{ "my-app": { "client": "Example Client", "hourlyRate": 50, "currency": "EUR" } }`. The timesheet export then adds the client, rate and amount to each priced row and a Billing section with the amount due per currency. Time is billed per minute, currencies are never added together and projects without a rate are listed as not priced. Rates live only in your settings.
 
 - **Manual session edits.** Idle detection or a forgotten pause can record the wrong hours, so Pro lets you fix them. Run `Local Time Ledger: Edit Sessions (Pro)`, pick a day and a session, then change its start or end, edit a note or a client label, split it in two, merge it with the previous or next session of the same project, or delete it. Times are local, as `HH:MM` or `YYYY-MM-DD HH:MM`. An end before the start, a session under one minute, a session in the future and an overlap with another session of the same project are refused. Each edit rewrites only the month files it touches, through a temporary file and a rename, and keeps any lines it does not understand. `Local Time Ledger: Undo Last Session Edit (Pro)` takes back the most recent edits, one at a time. The last 50 are kept in `session-edits.jsonl` in the data folder, which you can delete at any time. The session that is still running cannot be edited until it is written to disk. Everything is local and uses no network. Without a Pro key the commands only explain what Pro adds and never change your data. You can still fix your files by hand, as before.
+
+- **Billable tags.** In `Edit Sessions (Pro)`, choose `Set billable or not billable` to mark a session billable, not billable, or back to the default. When you split a session you can give each part its own tag, for example the first hour billable and the rest not. Two sessions merge only when both count the same way, so a merge never turns billable time into non-billable time without you saying so. Undo takes back tag changes like any other edit. Untagged sessions follow the `localTimeLedger.billableDefault` setting, so existing ledgers keep working with no changes. The timesheet export then shows billable hours and billable amounts per client next to the total time: CSV rows get billable hours and minutes columns and a client column, and Markdown and HTML get a "Billable time per client" section with total, billable and non-billable hours and the billable amount. Only billable time is priced. A client label set on a session takes priority over the project's client. Currencies are never added together, so a client billed in two currencies gets two lines.
 
 Pro is a one-time purchase of 19 USD on Gumroad: <https://tidyloomdev.gumroad.com/l/hsflch>. One purchase covers up to 3 machines. Gumroad sends a license key with the receipt. The 3 machine limit is checked when you activate a key. Re-checking a key on a machine where it is already active never counts as a new machine and never locks you out. If you replace a machine and hit the limit, open an issue on the GitHub repo for help, and never paste your key there. Refunds are available within 14 days.
 
