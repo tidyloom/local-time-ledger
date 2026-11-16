@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.4.0 (2026-11-16)
 
 - Pro: manual session editor. `Edit Sessions (Pro)` lets you pick a day and a session, then correct its start or end, edit a note and a client label, split it in two, merge it with the previous or next session of the same project, or delete it. Times that end before they start, sessions under one minute, sessions in the future and overlaps with another session of the same project are refused with a message.
 - Pro: `Undo Last Session Edit (Pro)` takes back the most recent edits, one at a time (the last 50 are kept in a local journal file next to your ledger).
@@ -11,6 +11,7 @@
 - New setting `localTimeLedger.billableDefault` (`withClient`, `always` or `never`, default `withClient`) for sessions without a billable tag. With the default, time in projects that have an hourly rate stays billable, so existing exports keep the same amounts.
 - Ledger lines can carry an optional `billable` value (true or false). Lines without it, including every line written by earlier versions, keep working.
 - Free features are unchanged.
+- The timesheet export screenshot now shows billable hours and billable time per client.
 
 ## 0.3.0 (2026-11-08)
 
